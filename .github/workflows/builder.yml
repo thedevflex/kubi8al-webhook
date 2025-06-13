@@ -9,8 +9,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  packages: write
+  contents: read write
+  packages: read write
 
 env:
   REGISTRY: ghcr.io
@@ -62,23 +62,3 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
-
-      - name: Generate installer.yaml
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          echo "# Installer configuration" > installer.yaml
-          echo "image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}" >> installer.yaml
-          echo "# Add more configuration as needed" >> installer.yaml
-
-      - name: Upload installer.yaml
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: actions/upload-artifact@v4
-        with:
-          name: installer
-          path: installer.yaml
-          retention-days: 5
-
-      - name: Upload installer.yaml to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: installer.yaml
