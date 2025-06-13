@@ -35,7 +35,7 @@ make build
 
 2. Run locally:
 ```bash
-make run
+make run EMMITER_API_ADDRESS=https://your-emitter-api.com WEBHOOK_SECRET=your-secret
 ```
 
 ### Docker
