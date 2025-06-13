@@ -3,6 +3,7 @@ package emitter
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 
@@ -21,6 +22,7 @@ type EmitterPayload struct {
 }
 
 func EmitWebhookPayload(payload model.ParsedWebHookPayload) error {
+	numOfRetries := 5
 	logs.Info("Emitting webhook payload to EMMITER_API_ADDRESS")
 
 	emitPayload := EmitterPayload{
@@ -36,27 +38,36 @@ func EmitWebhookPayload(payload model.ParsedWebHookPayload) error {
 	jsonData, err := json.Marshal(emitPayload)
 	if err != nil {
 		logs.Error("Failed to marshal payload", err)
-		return err
+		return fmt.Errorf("failed to marshal payload: %v", err)
 	}
 
 	emitterAPI := os.Getenv("EMMITER_API_ADDRESS")
 	if emitterAPI == "" {
 		logs.Error("EMMITER_API_ADDRESS environment variable not set")
-		return nil
+		return fmt.Errorf("EMMITER_API_ADDRESS environment variable not set")
+	}
+	for retryCount := numOfRetries; retryCount > 0; retryCount-- {
+		resp, err := http.Post(emitterAPI, "application/json", bytes.NewBuffer(jsonData))
+		if err != nil {
+			logs.Error("Failed to send payload to emitter API", err)
+			if retryCount == 1 {
+				return fmt.Errorf("failed to send payload to emitter API: %v", err)
+			}
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == 200 {
+			logs.Info("Successfully emitted webhook payload")
+			return nil
+		}
+
+		if resp.StatusCode >= 400 {
+			logs.Errorf("Emitter API returned error status: %d", resp.StatusCode)
+			return fmt.Errorf("emitter API returned error status: %d", resp.StatusCode)
+		}
 	}
 
-	resp, err := http.Post(emitterAPI, "application/json", bytes.NewBuffer(jsonData))
-	if err != nil {
-		logs.Error("Failed to send payload to emitter API", err)
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		logs.Errorf("Emitter API returned error status: %d", resp.StatusCode)
-		return nil
-	}
-
-	logs.Info("Successfully emitted webhook payload")
-	return nil
+	logs.Error("Failed to emit webhook payload")
+	return fmt.Errorf("failed to emit webhook payload")
 }
