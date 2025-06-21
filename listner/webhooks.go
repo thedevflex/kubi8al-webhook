@@ -5,7 +5,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/thedevflex/kubi8al-webhook/emitter"
-	"github.com/thedevflex/kubi8al-webhook/model"
 	logs "github.com/thedevflex/kubi8al-webhook/utils/logger"
 )
 
@@ -15,8 +14,12 @@ type PayloadResponse struct {
 
 func WebhookPOST(c *fiber.Ctx) error {
 	logs.InitLogger()
-
-	token := c.Query("token")
+	authHeader := c.Get("Authorization")
+	const bearerPrefix = "Bearer "
+	var token string
+	if len(authHeader) > len(bearerPrefix) && authHeader[:len(bearerPrefix)] == bearerPrefix {
+		token = authHeader[len(bearerPrefix):]
+	}
 	if token != os.Getenv("WEBHOOK_SECRET") {
 		logs.Error("unauthorized access attempt with token: ", token)
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -24,7 +27,7 @@ func WebhookPOST(c *fiber.Ctx) error {
 		})
 	}
 
-	var payload model.ParsedWebHookPayload
+	var payload emitter.PackagePublishedEvent
 	if err := c.BodyParser(&payload); err != nil {
 		logs.Error("cannot parse webhook payload", err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -32,28 +35,42 @@ func WebhookPOST(c *fiber.Ctx) error {
 			"error":   err.Error(),
 		})
 	}
-	logs.Infof("Received %s event for repository: %s", payload.Event, payload.Payload.Repository.FullName)
-	if err := emitter.EmitWebhookPayload(payload); err != nil {
-		logs.Error("failed to emit webhook payload", err)
+
+	if payload.Event == "package" && payload.Payload.Action == "published" {
+		logs.Infof("Received %s event for repository: %s", payload.Event, payload.Payload.Repository.FullName)
+		if err := emitter.EmitPackagePayload(payload); err != nil {
+			logs.Error("failed to emit package payload", err)
+		}
+		return c.Status(fiber.StatusOK).JSON(PayloadResponse{
+			Message: "Webhook Package processed successfully",
+		})
+	} else {
+		logs.Info("Received non-package event: ", payload.Event)
+		return c.Status(fiber.StatusOK).JSON(PayloadResponse{
+			Message: "Webhook processed successfully Not yet Implemented ",
+		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(PayloadResponse{
-		Message: "Webhook processed successfully",
-	})
 }
 
 func WebhookGET(c *fiber.Ctx) error {
 	logs.InitLogger()
-	token := c.Query("token")
+	authHeader := c.Get("Authorization")
+	const bearerPrefix = "Bearer "
+	var token string
+	if len(authHeader) > len(bearerPrefix) && authHeader[:len(bearerPrefix)] == bearerPrefix {
+		token = authHeader[len(bearerPrefix):]
+	}
 	if token != os.Getenv("WEBHOOK_SECRET") {
 		logs.Error("unauthorized access attempt with token: ", token)
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"message": "unauthorized access",
 		})
 	}
+
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "GET request successful",
-		"data":    "This is a sample response for GET request",
+		"data":    "Thought of the day: Premature optimization is the root of all evil.",
 	})
 
 }
