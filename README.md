@@ -26,6 +26,8 @@ The application requires the following environment variables:
 
 ## Building and Running
 
+https://smee.io/zt4WZYA7W9d2SXv
+
 ### Local Development
 
 1. Build the application:

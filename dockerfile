@@ -17,8 +17,6 @@ RUN apk --no-cache add ca-certificates
 COPY --from=builder /app/kubi8al-webhook .
 
 ENV PORT=8080
-ENV EMMITER_API_ADDRESS=""
-ENV WEBHOOK_SECRET=""
 EXPOSE ${PORT}
 
 ENTRYPOINT ["/app/kubi8al-webhook"]
